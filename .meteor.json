@@ -1,0 +1,13 @@
+{
+  "commitTitleCharLimit": 120,
+  "showIntro": false,
+  "prefixes": [
+    { "type": "Fix", "description": "🐝" },
+    { "type": "Feature", "description": "✨" },
+    { "type": "Refactor", "description": "🔧" },
+    { "type": "Conf", "description": "🧰" },
+    { "type": "Style", "description": "💅" },
+    { "type": "Docs", "description": "📚" },
+    { "type": "Tests", "description": "🧪" }
+  ]
+}
