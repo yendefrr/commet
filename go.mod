@@ -1,4 +1,4 @@
-module commet
+module github.com/yendefrr/commet
 
 go 1.21
 

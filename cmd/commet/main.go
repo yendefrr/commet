@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"commet/internal/config"
-	"commet/internal/git"
-	"commet/internal/parser"
-	"commet/internal/updater"
-	"commet/internal/version"
+	"github.com/yendefrr/commet/internal/config"
+	"github.com/yendefrr/commet/internal/git"
+	"github.com/yendefrr/commet/internal/parser"
+	"github.com/yendefrr/commet/internal/updater"
+	"github.com/yendefrr/commet/internal/version"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"

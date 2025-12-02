@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"commet/internal/config"
-	"commet/internal/parser"
+	"github.com/yendefrr/commet/internal/config"
+	"github.com/yendefrr/commet/internal/parser"
 
 	"github.com/Masterminds/semver/v3"
 )

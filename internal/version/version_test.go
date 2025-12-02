@@ -3,8 +3,8 @@ package version
 import (
 	"testing"
 
-	"commet/internal/config"
-	"commet/internal/parser"
+	"github.com/yendefrr/commet/internal/config"
+	"github.com/yendefrr/commet/internal/parser"
 )
 
 func TestCalculate(t *testing.T) {

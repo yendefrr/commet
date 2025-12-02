@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"commet/internal/config"
+	"github.com/yendefrr/commet/internal/config"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
