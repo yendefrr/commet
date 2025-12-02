@@ -5,22 +5,22 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
-	Version         VersionConfig       `yaml:"version"`
-	BumpRules       map[string]BumpType `yaml:"bump_rules"`
-	Detection       DetectionConfig     `yaml:"detection"`
-	Git             GitConfig           `yaml:"git"`
-	AdditionalFiles []VersionConfig     `yaml:"additional_files,omitempty"`
+	Version         VersionConfig       `toml:"version"`
+	BumpRules       map[string]BumpType `toml:"bump_rules"`
+	Detection       DetectionConfig     `toml:"detection"`
+	Git             GitConfig           `toml:"git"`
+	AdditionalFiles []VersionConfig     `toml:"additional_files,omitempty"`
 }
 
 type VersionConfig struct {
-	File    string `yaml:"file"`
-	Key     string `yaml:"key"`
-	Initial string `yaml:"initial"`
-	Format  string `yaml:"format"` // "semver" or "v-prefix"
+	File    string `toml:"file"`
+	Key     string `toml:"key"`
+	Initial string `toml:"initial"`
+	Format  string `toml:"format"` // "semver" or "v-prefix"
 }
 
 type BumpType string
@@ -33,17 +33,17 @@ const (
 )
 
 type DetectionConfig struct {
-	Strategies    []string `yaml:"strategies"`
-	TagPattern    string   `yaml:"tag_pattern"`
-	ExcludeMerges bool     `yaml:"exclude_merges"`
+	Strategies    []string `toml:"strategies"`
+	TagPattern    string   `toml:"tag_pattern"`
+	ExcludeMerges bool     `toml:"exclude_merges"`
 }
 
 type GitConfig struct {
-	AutoCommit    bool   `yaml:"auto_commit"`
-	CommitMessage string `yaml:"commit_message"`
-	AutoTag       bool   `yaml:"auto_tag"`
-	TagFormat     string `yaml:"tag_format"`
-	TagMessage    string `yaml:"tag_message"`
+	AutoCommit    bool   `toml:"auto_commit"`
+	CommitMessage string `toml:"commit_message"`
+	AutoTag       bool   `toml:"auto_tag"`
+	TagFormat     string `toml:"tag_format"`
+	TagMessage    string `toml:"tag_message"`
 }
 
 func DefaultConfig() *Config {
@@ -82,20 +82,15 @@ func DefaultConfig() *Config {
 
 func Load(configPath string) (*Config, error) {
 	if configPath == "" {
-		if _, err := os.Stat(".commet.yaml"); err == nil {
-			configPath = ".commet.yaml"
+		if _, err := os.Stat(".commet.toml"); err == nil {
+			configPath = ".commet.toml"
 		} else {
 			return DefaultConfig(), nil
 		}
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
-	}
-
 	cfg := DefaultConfig()
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	if _, err := toml.DecodeFile(configPath, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 
@@ -165,4 +160,19 @@ func (c *Config) ResolveVersionFilePath(configPath string) string {
 	}
 
 	return c.Version.File
+}
+
+func (c *Config) Save(configPath string) error {
+	file, err := os.Create(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := toml.NewEncoder(file)
+	if err := encoder.Encode(c); err != nil {
+		return fmt.Errorf("failed to encode config: %w", err)
+	}
+
+	return nil
 }

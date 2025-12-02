@@ -32,12 +32,54 @@ conventional commit messages.`,
 	RunE: run,
 }
 
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize a new .commet.toml configuration file",
+	Long:  `Creates a new .commet.toml file with default configuration in the current directory.`,
+	RunE:  initConfig,
+}
+
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .commet.yaml)")
+	rootCmd.AddCommand(initCmd)
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .commet.toml)")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without making changes")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "verbose output")
 	rootCmd.PersistentFlags().StringVar(&fromRef, "from", "", "start ref for commit range")
 	rootCmd.PersistentFlags().StringVar(&toRef, "to", "HEAD", "end ref for commit range")
+}
+
+func initConfig(cmd *cobra.Command, args []string) error {
+	configPath := ".commet.toml"
+
+	if fileExists(configPath) {
+		color.Yellow("Config file %s already exists", configPath)
+		fmt.Print("Do you want to overwrite it? (y/N): ")
+
+		var response string
+		fmt.Scanln(&response)
+		response = strings.ToLower(strings.TrimSpace(response))
+
+		if response != "y" && response != "yes" {
+			color.Cyan("Operation cancelled")
+			return nil
+		}
+	}
+
+	cfg := config.DefaultConfig()
+
+	if err := cfg.Save(configPath); err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+
+	color.Green("✓ Created %s", configPath)
+	fmt.Println()
+	color.Cyan("Next steps:")
+	fmt.Println("  1. Edit .commet.toml to match your project")
+	fmt.Println("  2. Run 'commet --dry-run' to preview changes")
+	fmt.Println("  3. Run 'commet' to bump version")
+
+	return nil
 }
 
 func run(cmd *cobra.Command, args []string) error {
