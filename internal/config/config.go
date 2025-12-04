@@ -13,6 +13,7 @@ type Config struct {
 	BumpRules       map[string]BumpType `toml:"bump_rules"`
 	Detection       DetectionConfig     `toml:"detection"`
 	Git             GitConfig           `toml:"git"`
+	Changelog       ChangelogConfig     `toml:"changelog"`
 	AdditionalFiles []VersionConfig     `toml:"additional_files,omitempty"`
 }
 
@@ -46,6 +47,11 @@ type GitConfig struct {
 	TagMessage    string `toml:"tag_message"`
 }
 
+type ChangelogConfig struct {
+	Enabled bool   `toml:"enabled"`
+	File    string `toml:"file"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Version: VersionConfig{
@@ -76,6 +82,10 @@ func DefaultConfig() *Config {
 			AutoTag:       false,
 			TagFormat:     "v{version}",
 			TagMessage:    "Release {version}",
+		},
+		Changelog: ChangelogConfig{
+			Enabled: false,
+			File:    "CHANGELOG.md",
 		},
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/yendefrr/commet/internal/changelog"
 	"github.com/yendefrr/commet/internal/config"
 	"github.com/yendefrr/commet/internal/git"
 	"github.com/yendefrr/commet/internal/parser"
@@ -50,9 +51,18 @@ Useful when auto_commit is disabled but you want to manually commit version chan
 	RunE: commitVersion,
 }
 
+var changelogCmd = &cobra.Command{
+	Use:   "changelog",
+	Short: "Generate changelog from commits",
+	Long: `Generates a changelog entry from commits since the last version and appends it to CHANGELOG.md.
+Commits are grouped by type (Feature, Fix, etc.) with untyped commits in a separate section.`,
+	RunE: generateChangelog,
+}
+
 func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(commitCmd)
+	rootCmd.AddCommand(changelogCmd)
 
 	commitCmd.Flags().BoolVar(&createTag, "tag", false, "also create a git tag for the version")
 	commitCmd.Flags().StringVarP(&commitMessage, "message", "m", "", "custom commit message (overrides config)")
@@ -181,6 +191,80 @@ func commitVersion(cmd *cobra.Command, args []string) error {
 
 		color.Green("✓ Created tag: %s", tagName)
 	}
+
+	return nil
+}
+
+func generateChangelog(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if !git.IsGitRepository(".") {
+		return fmt.Errorf("not a git repository")
+	}
+
+	gitClient, err := git.NewClient(".", cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize git: %w", err)
+	}
+
+	currentVersion, err := detectVersion(gitClient, cfg)
+	if err != nil {
+		return fmt.Errorf("failed to detect current version: %w", err)
+	}
+
+	if verbose {
+		color.Cyan("[VERSION] Current: %s", currentVersion)
+	}
+
+	commits, err := gitClient.GetCommits(fromRef, toRef)
+	if err != nil {
+		return fmt.Errorf("failed to get commits: %w", err)
+	}
+
+	if len(commits) == 0 {
+		color.Yellow("No commits found since %s", currentVersion)
+		return nil
+	}
+
+	if verbose {
+		color.Cyan("[GIT] Found %d commits", len(commits))
+	}
+
+	parsedCommits := make([]*parser.Commit, 0, len(commits))
+	for _, c := range commits {
+		parsed, err := parser.Parse(c.Message)
+		if err != nil {
+			if verbose {
+				color.Yellow("[WARN] Failed to parse: %s", c.Message)
+			}
+			continue
+		}
+
+		parsed.Hash = c.Hash
+		parsedCommits = append(parsedCommits, parsed)
+	}
+
+	if len(parsedCommits) == 0 {
+		color.Yellow("No valid commits found")
+		return nil
+	}
+
+	changelogFile := cfg.Changelog.File
+	if changelogFile == "" {
+		changelogFile = "CHANGELOG.md"
+	}
+
+	generator := changelog.NewGenerator(changelogFile)
+	if err := generator.Generate(currentVersion, parsedCommits); err != nil {
+		return fmt.Errorf("failed to generate changelog: %w", err)
+	}
+
+	color.Green("✓ Changelog updated: %s", changelogFile)
+	fmt.Println()
+	color.Cyan("Added %d commits grouped by type", len(parsedCommits))
 
 	return nil
 }
@@ -320,6 +404,22 @@ func run(cmd *cobra.Command, args []string) error {
 
 		color.Green("✓ Updated %s", filePath)
 		updatedFiles = append(updatedFiles, filePath)
+	}
+
+	// Generate changelog if enabled
+	if cfg.Changelog.Enabled {
+		changelogFile := cfg.Changelog.File
+		if changelogFile == "" {
+			changelogFile = "CHANGELOG.md"
+		}
+
+		generator := changelog.NewGenerator(changelogFile)
+		if err := generator.Generate(newVersion, parsedCommits); err != nil {
+			return fmt.Errorf("failed to generate changelog: %w", err)
+		}
+
+		color.Green("✓ Updated changelog: %s", changelogFile)
+		updatedFiles = append(updatedFiles, changelogFile)
 	}
 
 	// Git operations
