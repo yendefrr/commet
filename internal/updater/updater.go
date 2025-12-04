@@ -1,12 +1,13 @@
 package updater
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"gopkg.in/yaml.v3"
 )
 
@@ -36,56 +37,40 @@ func NewJSONUpdater(path string) *JSONUpdater {
 }
 
 func (u *JSONUpdater) GetVersion(keyPath string) (string, error) {
-	data, err := u.read()
+	content, err := os.ReadFile(u.filePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	value := getNestedValue(data, strings.Split(keyPath, "."))
-	if str, ok := value.(string); ok {
-		return str, nil
+	result := gjson.GetBytes(content, keyPath)
+	if !result.Exists() {
+		return "", fmt.Errorf("version key '%s' not found", keyPath)
 	}
 
-	return "", fmt.Errorf("version key '%s' not found or not a string", keyPath)
+	if result.Type != gjson.String {
+		return "", fmt.Errorf("version key '%s' is not a string", keyPath)
+	}
+
+	return result.String(), nil
 }
 
 func (u *JSONUpdater) SetVersion(keyPath, version string) error {
-	data, err := u.read()
+	content, err := os.ReadFile(u.filePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	if err := setNestedValue(data, strings.Split(keyPath, "."), version); err != nil {
-		return err
-	}
+	// Use sjson to set the value while preserving order and formatting
+	var opts sjson.Options
+	opts.Optimistic = true
+	opts.ReplaceInPlace = true
 
-	return u.write(data)
-}
-
-func (u *JSONUpdater) read() (map[string]interface{}, error) {
-	file, err := os.ReadFile(u.filePath)
+	updated, err := sjson.SetBytesOptions(content, keyPath, version, &opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return fmt.Errorf("failed to update JSON: %w", err)
 	}
 
-	var data map[string]interface{}
-	if err := json.Unmarshal(file, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %w", err)
-	}
-
-	return data, nil
-}
-
-func (u *JSONUpdater) write(data map[string]interface{}) error {
-	file, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
-	}
-
-	// Add newline at end
-	file = append(file, '\n')
-
-	if err := os.WriteFile(u.filePath, file, 0644); err != nil {
+	if err := os.WriteFile(u.filePath, updated, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
