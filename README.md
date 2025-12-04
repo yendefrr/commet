@@ -21,7 +21,7 @@ Commet analyzes your git commit history and automatically updates version number
 2. **Type without scope**: `Fix: handle null responses`
 3. **Board with wrapped type**: `J-123456(parser,regex): <Fix> syntax issue`
 4. **Board with unwrapped type**: `U-1234(config): Feature new section`
-5. **Force major**: `Fix!(core): Removed endpoint` or `Breaking: change`
+5. **Breaking!**: `Fix!(core): Removed endpoint` or `Breaking: change`
 
 ## Installation
 
