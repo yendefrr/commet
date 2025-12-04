@@ -37,7 +37,7 @@ sudo mv commet /usr/local/bin/
 ### Using Go Install
 
 ```bash
-go install github.com/yendefrr/commet/cmd/commet@v0.2.0
+go install github.com/yendefrr/commet/cmd/commet@latest
 ```
 
 ## Quick Start
@@ -122,6 +122,7 @@ Usage:
   commet [command]
 
 Available Commands:
+  commit      Commit version changes to git
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   init        Initialize a new .commet.toml configuration file
