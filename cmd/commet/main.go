@@ -21,6 +21,9 @@ var (
 	verbose bool
 	fromRef string
 	toRef   string
+
+	createTag      bool
+	commitMessage  string
 )
 
 var rootCmd = &cobra.Command{
@@ -39,8 +42,20 @@ var initCmd = &cobra.Command{
 	RunE:  initConfig,
 }
 
+var commitCmd = &cobra.Command{
+	Use:   "commit",
+	Short: "Commit version changes to git",
+	Long: `Commits the version file changes to git using the configured commit message.
+Useful when auto_commit is disabled but you want to manually commit version changes.`,
+	RunE: commitVersion,
+}
+
 func init() {
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(commitCmd)
+
+	commitCmd.Flags().BoolVar(&createTag, "tag", false, "also create a git tag for the version")
+	commitCmd.Flags().StringVarP(&commitMessage, "message", "m", "", "custom commit message (overrides config)")
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .commet.toml)")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "show what would be done without making changes")
@@ -78,6 +93,94 @@ func initConfig(cmd *cobra.Command, args []string) error {
 	fmt.Println("  1. Edit .commet.toml to match your project")
 	fmt.Println("  2. Run 'commet --dry-run' to preview changes")
 	fmt.Println("  3. Run 'commet' to bump version")
+
+	return nil
+}
+
+func commitVersion(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if !git.IsGitRepository(".") {
+		return fmt.Errorf("not a git repository")
+	}
+
+	gitClient, err := git.NewClient(".", cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize git: %w", err)
+	}
+
+	currentVersion := ""
+	for _, versionFile := range cfg.GetVersionFiles() {
+		if fileExists(versionFile.File) {
+			fileUpdater, err := updater.New(versionFile.File)
+			if err == nil {
+				version, err := fileUpdater.GetVersion(versionFile.Key)
+				if err == nil && version != "" {
+					currentVersion = version
+					break
+				}
+			}
+		}
+	}
+
+	if currentVersion == "" {
+		return fmt.Errorf("could not detect current version from version files")
+	}
+
+	if verbose {
+		color.Cyan("[VERSION] Detected: %s", currentVersion)
+	}
+
+	message := commitMessage
+	if message == "" {
+		message = cfg.Git.CommitMessage
+	}
+	message = strings.ReplaceAll(message, "{version}", currentVersion)
+
+	var filesToCommit []string
+	for _, versionFile := range cfg.GetVersionFiles() {
+		if fileExists(versionFile.File) {
+			filesToCommit = append(filesToCommit, versionFile.File)
+		}
+	}
+
+	if len(filesToCommit) == 0 {
+		return fmt.Errorf("no version files found to commit")
+	}
+
+	if err := gitClient.CreateCommit(filesToCommit, message); err != nil {
+		return fmt.Errorf("failed to create commit: %w", err)
+	}
+
+	color.Green("✓ Created commit: %s", message)
+	fmt.Println()
+	color.Cyan("Committed files:")
+	for _, file := range filesToCommit {
+		fmt.Printf("  - %s\n", file)
+	}
+
+	if createTag {
+		tagFormat := cfg.Git.TagFormat
+		if tagFormat == "" {
+			tagFormat = "v{version}"
+		}
+		tagName := strings.ReplaceAll(tagFormat, "{version}", currentVersion)
+
+		tagMsg := cfg.Git.TagMessage
+		if tagMsg == "" {
+			tagMsg = "Release {version}"
+		}
+		tagMsg = strings.ReplaceAll(tagMsg, "{version}", currentVersion)
+
+		if err := gitClient.CreateTag(tagName, tagMsg); err != nil {
+			return fmt.Errorf("failed to create tag: %w", err)
+		}
+
+		color.Green("✓ Created tag: %s", tagName)
+	}
 
 	return nil
 }
