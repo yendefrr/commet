@@ -37,7 +37,7 @@ sudo mv commet /usr/local/bin/
 ### Using Go Install
 
 ```bash
-go install github.com/yendefrr/commet/cmd/commet@latest
+go install github.com/yendefrr/commet/cmd/commet@v0.2.0
 ```
 
 ## Quick Start
@@ -62,6 +62,12 @@ commet
 
 # Verbose output
 commet --verbose
+
+# Commit version update (if disabled auto)
+commet commit
+
+# Commit version update with tag (if disabled auto)
+commet commit --tag
 ```
 
 ## Configuration
